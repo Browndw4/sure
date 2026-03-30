@@ -32,7 +32,7 @@
               </div>
 
               <div class="text-3xl font-medium text-primary privacy-sensitive">
-                <%= format_money Money.new(outflows_data[:total], outflows_data[:currency]) %>
+                <%= format_money(Money.new(outflows_data[:total], outflows_data[:currency]), precision: 0) %>
               </div>
             </div>
 
@@ -42,7 +42,7 @@
                   <p class="text-sm text-secondary"><%= category[:name] %></p>
 
                   <p class="text-3xl font-medium text-primary privacy-sensitive">
-                    <%= outflows_data[:currency_symbol] %><%= number_with_delimiter(category[:amount], delimiter: ",") %>
+                    <%= outflows_data[:currency_symbol] %><%= number_with_precision(category[:amount], delimiter: ",", precision: 0) %>
                   </p>
 
                   <p class="text-sm text-secondary privacy-sensitive"><%= category[:percentage] %>%</p>
@@ -94,7 +94,7 @@
                 <span class="text-sm font-medium text-primary truncate"><%= category[:name] %></span>
               </div>
               <div class="flex items-center gap-4 flex-shrink-0 text-right">
-                <span class="text-sm font-medium text-primary whitespace-nowrap privacy-sensitive"><%= format_money Money.new(category[:amount], category[:currency]) %></span>
+                <span class="text-sm font-medium text-primary whitespace-nowrap privacy-sensitive"><%= format_money(Money.new(category[:amount], category[:currency]), precision: 0) %></span>
                 <span class="text-sm text-secondary whitespace-nowrap w-10 lg:w-15 privacy-sensitive"><%= category[:percentage] %>%</span>
               </div>
             <% end %>
