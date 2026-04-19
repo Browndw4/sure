@@ -5,18 +5,17 @@ class InvestmentStatement
 
   monetize :total_contributions, :total_dividends, :total_interest, :unrealized_gains
 
-  attr_reader :family, :user
+  attr_reader :family
 
-  def initialize(family, user: nil)
+  def initialize(family)
     @family = family
-    @user = user || Current.user
   end
 
   # Get totals for a specific period
   def totals(period: Period.current_month)
     trades_in_period = family.trades
       .joins(:entry)
-      .where(entries: { date: period.date_range, account_id: investment_account_ids })
+      .where(entries: { date: period.date_range })
 
     result = totals_query(trades_scope: trades_in_period)
 
@@ -82,12 +81,32 @@ class InvestmentStatement
           .order(Arel.sql("holdings.account_id, holdings.security_id, holdings.date DESC"))
       )
       .includes(:security, :account)
-      .order(amount: :desc)
+      #.order(amount: :desc)
   end
 
   # Top holdings by value
   def top_holdings(limit: 5)
-    current_holdings.limit(limit)
+#    holdings = current_holdings.select("'00000000-0000-0000-0000-000000000000'::UUID AS account_id, security_id, sum(qty) AS qty, price, sum(amount) AS amount, currency, sum(cost_basis * qty) / SUM(qty) AS cost_basis, true AS cost_basis_locked")
+    holdings = current_holdings.select("'00000000-0000-0000-0000-000000000000'::UUID AS account_id, security_id, sum(qty) AS qty, price, sum(amount) AS amount, currency, sum(cost_basis * qty) / SUM(qty) AS cost_basis")
+      .group(:security_id, :price, :currency)
+      .order("amount DESC")
+      .limit(limit)
+
+    holdings.map do |holding|
+      if holding.cost_basis.nil?
+        trend = nil
+      else
+        previous = Money.new(holding.qty * holding.cost_basis, holding.currency)
+        trend = Trend.new(current: holding.amount_money, previous: previous)
+      end
+
+      HoldingAllocation.new(
+        security: Security.find(holding.security_id),
+        amount: holding.amount_money,
+        weight: (holding.amount / portfolio_value * 100).round(2),
+        trend: trend
+      )
+    end
   end
 
   # Portfolio allocation by security type/sector (simplified for now)
@@ -97,14 +116,17 @@ class InvestmentStatement
 
     return [] if total.zero?
 
-    holdings.map do |holding|
+    ret = holdings.map do |holding|
       HoldingAllocation.new(
         security: holding.security,
         amount: holding.amount_money,
         weight: (holding.amount / total * 100).round(2),
-        trend: holding.trend
+        trend: trend
       )
     end
+
+    logger.info(ret)
+    return ret
   end
 
   # Unrealized gains across all holdings
@@ -162,11 +184,7 @@ class InvestmentStatement
 
   # Investment accounts
   def investment_accounts
-    @investment_accounts ||= begin
-      scope = family.accounts.visible.where(accountable_type: %w[Investment Crypto])
-      scope = scope.included_in_finances_for(user) if user
-      scope
-    end
+    @investment_accounts ||= family.accounts.visible.where(accountable_type: %w[Investment Crypto])
   end
 
   private
@@ -186,15 +204,11 @@ class InvestmentStatement
 
     HoldingAllocation = Data.define(:security, :amount, :weight, :trend)
 
-    def investment_account_ids
-      @investment_account_ids ||= investment_accounts.pluck(:id)
-    end
-
     def totals_query(trades_scope:)
       sql_hash = Digest::MD5.hexdigest(trades_scope.to_sql)
 
       Rails.cache.fetch([
-        "investment_statement", "totals_query", family.id, user&.id, sql_hash, family.entries_cache_version
+        "investment_statement", "totals_query", family.id, sql_hash, family.entries_cache_version
       ]) { Totals.new(family, trades_scope: trades_scope).call }
     end
 
