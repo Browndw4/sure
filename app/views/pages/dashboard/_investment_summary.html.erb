@@ -9,7 +9,7 @@
         </div>
 
         <p class="text-primary text-3xl font-medium privacy-sensitive">
-          <%= format_money(investment_statement.portfolio_value_money) %>
+          <%= format_money(investment_statement.portfolio_value_money, precision: 0) %>
         </p>
 
         <% trend = investment_statement.unrealized_gains_trend %>
@@ -17,7 +17,7 @@
           <div class="flex items-center gap-2 text-sm">
             <span class="text-secondary"><%= t(".total_return") %>:</span>
             <span class="font-medium privacy-sensitive" style="color: <%= trend.color %>">
-              <%= format_money(Money.new(trend.value, Current.family.currency)) %>
+              <%= format_money(Money.new(trend.value, Current.family.currency), precision: 0) %>
               (<%= trend.percent_formatted %>)
             </span>
           </div>
@@ -25,7 +25,7 @@
       </div>
     </div>
 
-    <% holdings = investment_statement.top_holdings(limit: 5) %>
+    <% holdings = investment_statement.top_holdings(limit: 15) %>
     <% if holdings.any? %>
       <div class="bg-container-inset rounded-xl p-1 mx-4 overflow-x-auto">
         <div class="rounded-lg shadow-border-xs bg-container overflow-hidden">
@@ -34,8 +34,7 @@
             <tr class="uppercase text-xs font-medium text-secondary">
               <th class="px-4 py-2 text-left font-medium"><%= t(".holding") %></th>
               <th class="px-4 py-2 text-right font-medium"><%= t(".weight") %></th>
-              <th class="px-4 py-2 text-right font-medium"><%= t(".value") %></th>
-              <th class="px-4 py-2 text-right font-medium"><%= t(".return") %></th>
+              <th class="px-4 py-2 text-right font-medium"><%= t(".value") %> / <%= t(".return") %></th>
             </tr>
           </thead>
           <tbody class="font-medium text-sm">
@@ -44,15 +43,16 @@
                 <td class="p-4">
                   <div class="flex items-center gap-3">
                     <% if holding.security.logo_url.present? %>
-                      <img src="<%= holding.security.logo_url %>" alt="<%= holding.ticker %>" class="w-8 h-8 rounded-full">
+                      <img src="<%= holding.security.logo_url %>" alt="<%= holding.security.ticker %>" class="w-8 h-8 rounded-full">
                     <% else %>
                       <div class="w-8 h-8 rounded-full bg-container-inset flex items-center justify-center text-xs font-medium text-secondary">
-                        <%= holding.ticker.to_s.first(2).presence || "—" %>
+                        <%= holding.security.ticker.to_s.first(2).presence || "—" %>
                       </div>
                     <% end %>
-                    <div class="max-w-32">
-                      <p class="font-medium truncate"><%= holding.ticker %></p>
-                      <p class="text-xs text-secondary"><%= truncate(holding.name, length: 20) %></p>
+                    <div class="max-w-96">
+                      <p class="font-medium truncate"><%= holding.security.ticker %></p>
+                      <p class="md:hidden text-xs text-secondary"><%= truncate(holding.security.name, length: 18) %></p>
+                      <p class="hidden md:block text-xs text-secondary"><%= truncate(holding.security.name, length: 60) %></p>
                     </div>
                   </div>
                 </td>
@@ -62,10 +62,8 @@
                 </td>
 
                 <td class="p-4 text-right privacy-sensitive">
-                  <%= format_money(holding.amount_money) %>
-                </td>
-
-                <td class="p-4 text-right">
+                  <%= format_money(holding.amount, precision: 0) %>
+                  <p class="text-xs text-secondary">
                   <% if holding.trend %>
                     <span class="privacy-sensitive" style="color: <%= holding.trend.color %>">
                       <%= holding.trend.percent_formatted %>
@@ -73,6 +71,7 @@
                   <% else %>
                     <span class="text-secondary">-</span>
                   <% end %>
+                  </p>
                 </td>
               </tr>
             <% end %>
