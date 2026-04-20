@@ -247,11 +247,11 @@ class SnaptradeAccount::ActivitiesProcessor
     def normalize_cash_amount(amount, activity_type)
       case activity_type
       when "WITHDRAWAL", "TRANSFER_OUT", "FEE", "TAX"
-        -amount.abs  # These should be negative (money out)
+        amount.abs  # These should be positive (money out)
       when "CONTRIBUTION", "TRANSFER_IN", "DIVIDEND", "DIV", "INTEREST", "CASH"
-        amount.abs   # These should be positive (money in)
+        -amount.abs   # These should be negative (money in)
       else
-        amount
+        -amount
       end
     end
 
